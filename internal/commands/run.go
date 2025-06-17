@@ -3,6 +3,8 @@ package commands
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"log"
 	"os/exec"
 
 	"github.com/container-compose/cli/internal/problems"
@@ -14,7 +16,8 @@ type RunCommand struct {
 	// Interactive    bool
 	// Debug          bool
 	// Version        bool
-	ContainerImage string
+	ContainerImage       string
+	EnvironmentVariables map[string]string
 }
 
 func (c *RunCommand) Image(image string) *RunCommand {
@@ -22,13 +25,14 @@ func (c *RunCommand) Image(image string) *RunCommand {
 	return c
 }
 
-func Run(name string) (*RunCommand, error) {
+func Run(name string, environmentVariables map[string]string) (*RunCommand, error) {
 	if name == "" {
 		return nil, problems.ErrNameCannotBeEmpty
 	}
 
 	return &RunCommand{
-		Name: name,
+		Name:                 name,
+		EnvironmentVariables: environmentVariables,
 	}, nil
 }
 
@@ -38,14 +42,21 @@ func (c *RunCommand) Exec(ctx context.Context) error {
 	args := []string{
 		"run",
 		"--name", c.Name,
+		"--rm",
 	}
 
 	if !c.Attach {
 		args = append(args, "--detach")
 	}
 
+	for key, value := range c.EnvironmentVariables {
+		args = append(args, "--env", fmt.Sprintf("%s=%s", key, value))
+	}
+
 	args = append(args, c.ContainerImage)
 	cmd := exec.Command("container", args...)
+
+	log.Println(args)
 
 	// create io writers to capture the exec output
 	stdout := &bytes.Buffer{}

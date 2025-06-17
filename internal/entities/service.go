@@ -12,12 +12,12 @@ import (
 )
 
 type Service struct {
-	Image       string            `yaml:"image"`
-	Name        string            `yaml:"container_name"`
-	Ports       []string          `yaml:"ports"`
-	Environment map[string]string `yaml:"environment"`
-	Labels      map[string]string `yaml:"labels"`
-	Volumes     []string          `yaml:"volumes"`
+	Image                string            `yaml:"image"`
+	Name                 string            `yaml:"container_name"`
+	Ports                []string          `yaml:"ports"`
+	EnvironmentVariables map[string]string `yaml:"environment"`
+	Labels               map[string]string `yaml:"labels"`
+	Volumes              []string          `yaml:"volumes"`
 }
 
 // GenerateName generates a name for the service. It does this deterministically based on the
@@ -57,7 +57,7 @@ func (service *Service) RunCommand(ctx context.Context) (*commands.RunCommand, e
 		service.Name = generated
 	}
 
-	cmd, err := commands.Run(service.Name)
+	cmd, err := commands.Run(service.Name, service.EnvironmentVariables)
 	if err != nil {
 		return nil, err
 	}
