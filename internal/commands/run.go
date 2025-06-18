@@ -42,7 +42,7 @@ func (c *RunCommand) Exec(ctx context.Context) error {
 	args := []string{
 		"run",
 		"--name", c.Name,
-		"--rm",
+		// "--rm",
 	}
 
 	if !c.Attach {

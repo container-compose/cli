@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"github.com/container-compose/cli/cmd/start"
@@ -6,19 +6,15 @@ import (
 )
 
 var (
-	cmd = &cobra.Command{
+	rootCmd = &cobra.Command{
 		Use: "container-compose",
 	}
 )
 
-func main() {
-	Execute()
-}
-
 func Execute() error {
-	return cmd.Execute()
+	return rootCmd.Execute()
 }
 
 func init() {
-	start.RegisterCommand(cmd)
+	start.RegisterCommand(rootCmd)
 }
