@@ -8,25 +8,25 @@ import (
 	"github.com/container-compose/cli/internal/problems"
 )
 
-type StartCommand struct {
+type StopCommand struct {
 	ID string
 }
 
-func Start(id string) (*StartCommand, error) {
+func Stop(id string) (*StopCommand, error) {
 	if id == "" {
 		return nil, problems.ErrIDCannotBeEmpty
 	}
 
-	return &StartCommand{
+	return &StopCommand{
 		ID: id,
 	}, nil
 }
 
-// Exec executes the start command
-func (c *StartCommand) Exec(ctx context.Context) error {
+// Exec executes the stop command
+func (c *StopCommand) Exec(ctx context.Context) error {
 
 	args := []string{
-		"start",
+		"stop",
 		c.ID,
 	}
 

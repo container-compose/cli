@@ -34,7 +34,41 @@ var (
 
 			// start the services
 			for _, service := range config.Services {
-				cmd, err := service.StartCommand(ctx)
+
+				// check if the service is already running
+				isRunning, err := service.IsRunning(ctx)
+				if err != nil {
+					logger.ErrorContext(ctx, err.Error())
+					return
+				}
+				if isRunning {
+					continue
+				}
+
+				// if we already have the service, but it's not running, start it
+				exists, err := service.Exists(ctx)
+				if err != nil {
+					logger.ErrorContext(ctx, err.Error())
+					return
+				}
+				if exists {
+					// start it back up
+					cmd, err := service.StartCommand(ctx)
+					if err != nil {
+						logger.ErrorContext(ctx, err.Error())
+						return
+					}
+					err = cmd.Exec(ctx)
+					if err != nil {
+						logger.ErrorContext(ctx, err.Error())
+						return
+					}
+					logger.InfoContext(ctx, "started service", "name", service.Name)
+					continue
+				}
+
+				// start the service
+				cmd, err := service.RunCommand(ctx)
 				if err != nil {
 					logger.ErrorContext(ctx, err.Error())
 					return
