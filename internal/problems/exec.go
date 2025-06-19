@@ -10,6 +10,7 @@ const (
 	Stop    = "002"
 	Inspect = "003"
 	Start   = "004"
+	Build   = "005"
 )
 
 var (
@@ -27,6 +28,11 @@ var (
 
 	// start errors
 	ErrContainerAlreadyStarted = New(Start, "001", "Container is already started")
+
+	// build errors
+	ErrDockerfileNotFound   = New(Build, "001", "Dockerfile not found")
+	ErrBuildContextNotFound = New(Build, "002", "Build context directory not found")
+	ErrBuildFailed          = New(Build, "003", "Build failed")
 )
 
 var (
@@ -36,6 +42,9 @@ var (
 		"Error: exists: \"container with id ": ErrContainerWithIDAlreadyExists,
 		"Error: not found: ":                  ErrContainerNotFound,
 		"Error: already started: ":            ErrContainerAlreadyStarted,
+		"Error: dockerfile not found":         ErrDockerfileNotFound,
+		"Error: build context not found":      ErrBuildContextNotFound,
+		"Error: build failed":                 ErrBuildFailed,
 	}
 )
 
@@ -45,6 +54,8 @@ func Convert(input string) Problem {
 			return problem
 		}
 	}
+
+	print(input)
 
 	return ErrGeneric
 }

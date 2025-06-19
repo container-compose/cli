@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  custom-nginx:
+    image: from-nginx
+    build:
+      context: .
+      dockerfile: Dockerfile
+    labels:
+      com.cli.has-build: "true"
+
+  registry-nginx:
+    image: nginx:latest
+    labels:
+      com.cli.has-build: "false"

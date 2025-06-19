@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -19,6 +20,37 @@ type Service struct {
 	EnvironmentVariables map[string]string `yaml:"environment"`
 	Labels               map[string]string `yaml:"labels"`
 	Volumes              []string          `yaml:"volumes"`
+	Build                *Build            `yaml:"build,omitempty"`
+}
+
+type Build struct {
+	Context    string            `yaml:"context,omitempty"`
+	Dockerfile string            `yaml:"dockerfile,omitempty"`
+	Args       map[string]string `yaml:"args,omitempty"`
+	Labels     map[string]string `yaml:"labels,omitempty"`
+	Target     string            `yaml:"target,omitempty"`
+	Network    string            `yaml:"network,omitempty"`
+	NoCache    bool              `yaml:"no_cache,omitempty"`
+	Pull       bool              `yaml:"pull,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for Build which
+// handles both string format (build: "./path") and object format
+func (b *Build) UnmarshalYAML(value *yaml.Node) error {
+	// If it's a string, treat it as the context path
+	if value.Kind == yaml.ScalarNode {
+		b.Context = value.Value
+		return nil
+	}
+
+	// If it's a mapping, unmarshal normally
+	if value.Kind == yaml.MappingNode {
+		type buildAlias Build
+		aux := (*buildAlias)(b)
+		return value.Decode(aux)
+	}
+
+	return fmt.Errorf("build must be either a string or an object")
 }
 
 // GenerateName generates a name for the service. It does this deterministically based on the
@@ -98,6 +130,7 @@ func (service *Service) IsRunning(ctx context.Context) (bool, error) {
 }
 
 // RunCommand creates a command to run the service.
+// If the service has build configuration, it will build the image first.
 func (service *Service) RunCommand(ctx context.Context) (*commands.RunCommand, error) {
 
 	if service.Name == "" {
@@ -106,6 +139,27 @@ func (service *Service) RunCommand(ctx context.Context) (*commands.RunCommand, e
 			return nil, err
 		}
 		service.Name = generated
+	}
+
+	// Check if we need to build the image first
+	if service.Build != nil {
+		buildCmd, err := service.BuildCommand(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create build command: %w", err)
+		}
+
+		// Execute the build command
+		if err := buildCmd.Exec(ctx); err != nil {
+			return nil, fmt.Errorf("failed to build image: %w", err)
+		}
+
+		// If no image was specified, use the built image tag
+		if service.Image == "" {
+			if service.Build.Context != "" {
+				// Use the service name as the image tag
+				service.Image = service.Name
+			}
+		}
 	}
 
 	cmd, err := commands.Run(service.Name, service.EnvironmentVariables, service.Labels)
@@ -138,6 +192,7 @@ func (service *Service) StopCommand(ctx context.Context) (*commands.StopCommand,
 }
 
 // StartCommand creates a command to start the service.
+// If the service has build configuration and the image doesn't exist, it will build first.
 func (service *Service) StartCommand(ctx context.Context) (*commands.StartCommand, error) {
 
 	if service.Name == "" {
@@ -148,12 +203,103 @@ func (service *Service) StartCommand(ctx context.Context) (*commands.StartComman
 		service.Name = generated
 	}
 
+	// Check if we need to build the image first
+	if service.Build != nil {
+		// If we have a build configuration, ensure the image is built
+		exists, err := service.Exists(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if !exists {
+			// Container doesn't exist, we need to build and run instead of start
+			return nil, fmt.Errorf("container does not exist, use RunCommand to build and run")
+		}
+	}
+
 	cmd, err := commands.Start(service.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	return cmd, nil
+}
+
+// BuildCommand creates a command to build the service image.
+func (service *Service) BuildCommand(ctx context.Context) (*commands.BuildCommand, error) {
+	if service.Build == nil {
+		return nil, fmt.Errorf("no build configuration found for service")
+	}
+
+	// Use the build context, default to current directory
+	context := service.Build.Context
+	if context == "" {
+		context = "."
+	}
+
+	cmd, err := commands.Build(context)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set Dockerfile path if specified
+	if service.Build.Dockerfile != "" {
+		cmd.SetDockerfile(service.Build.Dockerfile)
+	}
+
+	// Set build args
+	if service.Build.Args != nil {
+		cmd.SetBuildArgs(service.Build.Args)
+	}
+
+	// Set labels (merge service labels with build labels)
+	allLabels := make(map[string]string)
+	for k, v := range service.Labels {
+		allLabels[k] = v
+	}
+	for k, v := range service.Build.Labels {
+		allLabels[k] = v
+	}
+	if len(allLabels) > 0 {
+		cmd.SetLabels(allLabels)
+	}
+
+	// Set target
+	if service.Build.Target != "" {
+		cmd.SetTarget(service.Build.Target)
+	}
+
+	// Set no-cache
+	if service.Build.NoCache {
+		cmd.SetNoCache(true)
+	}
+
+	// Set pull
+	if service.Build.Pull {
+		cmd.SetPull(true)
+	}
+
+	// Set tag - use the service image name if specified, otherwise use service name
+	tag := service.Image
+	if tag == "" {
+		if service.Name == "" {
+			generated, err := service.GenerateName(ctx)
+			if err != nil {
+				return nil, err
+			}
+			tag = generated
+		} else {
+			tag = service.Name
+		}
+	}
+	cmd.SetTag(tag)
+
+	return cmd, nil
+}
+
+// NeedsBuild checks if the service needs to be built (has build config but no image)
+func (service *Service) NeedsBuild() bool {
+	return service.Build != nil && service.Image == ""
 }
 
 // InspectCommand creates a command to inspect the service.
