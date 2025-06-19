@@ -46,8 +46,8 @@ func (service *Service) GenerateName(ctx context.Context) (string, error) {
 	return nameGenerator.Generate(), nil
 }
 
-// RunCommand creates a command to run the service.
-func (service *Service) RunCommand(ctx context.Context) (*commands.RunCommand, error) {
+// StartCommand creates a command to start the service.
+func (service *Service) StartCommand(ctx context.Context) (*commands.StartCommand, error) {
 
 	if service.Name == "" {
 		generated, err := service.GenerateName(ctx)
@@ -57,7 +57,7 @@ func (service *Service) RunCommand(ctx context.Context) (*commands.RunCommand, e
 		service.Name = generated
 	}
 
-	cmd, err := commands.Run(service.Name, service.EnvironmentVariables)
+	cmd, err := commands.Start(service.Name, service.EnvironmentVariables, service.Labels)
 	if err != nil {
 		return nil, err
 	}

@@ -34,7 +34,7 @@ var (
 
 			// start the services
 			for _, service := range config.Services {
-				cmd, err := service.RunCommand(ctx)
+				cmd, err := service.StartCommand(ctx)
 				if err != nil {
 					logger.ErrorContext(ctx, err.Error())
 					return

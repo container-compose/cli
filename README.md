@@ -15,7 +15,7 @@ go install github.com/container-compose/cli@latest
 ## Building from source
 
 ```bash
-go build -o container-compose ./cmd
+go build -o container-compose main.go
 ./container-compose -h
 ```
 
@@ -38,8 +38,8 @@ services:
       - "8080:80"
 ```
 
-### `container-compose up`
+### `container-compose start`
 
 ```bash
-container-compose up -f compose.yaml
+container-compose start -f compose.yaml
 ```

@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"os/exec"
 
 	"github.com/container-compose/cli/internal/problems"
 )
 
-type RunCommand struct {
+type StartCommand struct {
 	Name   string
 	Attach bool
 	// Interactive    bool
@@ -18,31 +17,32 @@ type RunCommand struct {
 	// Version        bool
 	ContainerImage       string
 	EnvironmentVariables map[string]string
+	Labels               map[string]string
 }
 
-func (c *RunCommand) Image(image string) *RunCommand {
+func (c *StartCommand) Image(image string) *StartCommand {
 	c.ContainerImage = image
 	return c
 }
 
-func Run(name string, environmentVariables map[string]string) (*RunCommand, error) {
+func Start(name string, environmentVariables map[string]string, labels map[string]string) (*StartCommand, error) {
 	if name == "" {
 		return nil, problems.ErrNameCannotBeEmpty
 	}
 
-	return &RunCommand{
+	return &StartCommand{
 		Name:                 name,
 		EnvironmentVariables: environmentVariables,
+		Labels:               labels,
 	}, nil
 }
 
-// Exec executes the run command
-func (c *RunCommand) Exec(ctx context.Context) error {
+// Exec executes the start command
+func (c *StartCommand) Exec(ctx context.Context) error {
 
 	args := []string{
 		"run",
 		"--name", c.Name,
-		// "--rm",
 	}
 
 	if !c.Attach {
@@ -53,10 +53,12 @@ func (c *RunCommand) Exec(ctx context.Context) error {
 		args = append(args, "--env", fmt.Sprintf("%s=%s", key, value))
 	}
 
+	for key, value := range c.Labels {
+		args = append(args, "--label", fmt.Sprintf("%s=%s", key, value))
+	}
+
 	args = append(args, c.ContainerImage)
 	cmd := exec.Command("container", args...)
-
-	log.Println(args)
 
 	// create io writers to capture the exec output
 	stdout := &bytes.Buffer{}
